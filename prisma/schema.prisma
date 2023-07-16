@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Recipe {
+  id                Int                 @id @default(autoincrement())
+  name              String
+  description       String?
+  notes             Json?
+  steps             Json
+  quantity          Float?
+  measurement       String?
+  Recipe_Ingredient Recipe_Ingredient[]
+  userID            Int?
+  User              User?               @relation(fields: [userID], references: [id], onDelete: SetNull)
+  createdAt         DateTime            @default(now())
+  img               Img?
+}
+
+model Img {
+  id           Int         @id @default(autoincrement())
+  recipe       Recipe?     @relation(fields: [recipeId], references: [id])
+  recipeId     Int?        @unique
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id])
+  ingredientId Int?        @unique
+  img          Bytes
+}
+
+model Ingredient {
+  id                Int                 @id @default(autoincrement())
+  name              String
+  quantity          Float?
+  measurement       String?
+  Cost              Float?
+  Recipe_Ingredient Recipe_Ingredient[]
+  createdAt         DateTime            @default(now())
+  Img               Img?
+}
+
+model Recipe_Ingredient {
+  id           Int        @id @default(autoincrement())
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId     Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientId Int
+  quantity     Float
+  measurement  String
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  age          Int
+  email        String   @unique
+  password     String
+  writtenPosts Recipe[]
+}
