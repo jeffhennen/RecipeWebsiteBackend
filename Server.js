@@ -203,7 +203,7 @@ app.post('/api/Ingredients/AddIngredient', async (req, res) => {
 // Add your other routes and middleware here...
 // (The same code you provided in the previous message)
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 
 
