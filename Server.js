@@ -88,7 +88,7 @@ app.delete('/api/recipes/:id', async (req, res) => {
     }
 });
 
-app.put('/api/recipes/:id', async (req, res) => {
+  app.put('/api/recipes/:id', async (req, res) => {
     try {
       const recipeId = Number(req.params.id);
       const {
@@ -110,6 +110,41 @@ app.put('/api/recipes/:id', async (req, res) => {
         }
       });
   
+      // Fetch the existing recipe with its associated Recipe_Ingredient
+      const existingRecipe = await prisma.recipe.findUnique({
+        where: {
+          id: recipeId,
+        },
+        include: {
+          Recipe_Ingredient: true,
+        },
+      });
+  
+      if (!existingRecipe) {
+        return res.status(404).json({ error: 'Recipe not found' });
+      }
+  
+      // Delete extra recipe_ingredient records
+      const existingRecipeIngredientIds = existingRecipe.Recipe_Ingredient.map(
+        (ingredient) => ingredient.id
+      );
+  
+      const recipeIngredientsToDelete = existingRecipeIngredientIds.filter(
+        (id) => !recipe_ingredientsID.some((ingredient) => ingredient.id === id)
+      );
+  
+      console.log(req.body)
+      if (recipeIngredientsToDelete.length > 0) {
+        await prisma.Recipe_Ingredient.deleteMany({
+          where: {
+            id: {
+              in: recipeIngredientsToDelete,
+            },
+          },
+        });
+      }
+  
+      // Update the recipe and its Recipe_Ingredient
       const updatedRecipe = await prisma.recipe.update({
         where: {
           id: recipeId,
