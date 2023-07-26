@@ -88,7 +88,66 @@ app.delete('/api/recipes/:id', async (req, res) => {
     }
 });
 
-app.put('/api/recipes/:id', async (req, res) => {
+// app.put('/api/recipes/:id', async (req, res) => {
+//     try {
+//       const recipeId = Number(req.params.id);
+//       const {
+//         name,
+//         description,
+//         steps,
+//         notes,
+//         Recipe_Ingredient,
+//       } = req.body;
+  
+//       const recipe_ingredientNoID = [];
+//       const recipe_ingredientsID = [];
+  
+//       Recipe_Ingredient.forEach((ingredient) => {
+//         if (ingredient.id) {
+//           recipe_ingredientsID.push(ingredient);
+//         } else {
+//           recipe_ingredientNoID.push(ingredient);
+//         }
+//       });
+  
+//       const updatedRecipe = await prisma.recipe.update({
+//         where: {
+//           id: recipeId,
+//         },
+//         data: {
+//           name: name,
+//           description: description,
+//           steps: steps,
+//           notes: notes,
+//           Recipe_Ingredient: {
+//             updateMany: recipe_ingredientsID.map((ingredient) => ({
+//               where: { id: ingredient.id },
+//               data: {
+//                 ingredientId: Number(ingredient.ingredientId),
+//                 quantity: parseFloat(ingredient.quantity),
+//                 measurement: ingredient.measurement,
+//               },
+//             })),
+//             create: recipe_ingredientNoID.map((ingredient) => ({
+//               ingredientId: Number(ingredient.ingredientId),
+//               quantity: parseFloat(ingredient.quantity),
+//               measurement: ingredient.measurement,
+//             })),
+//           },
+//         },
+//         include: {
+//           Recipe_Ingredient: true,
+//         },
+//       });
+  
+//       res.status(200).json(updatedRecipe);
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ error: 'Failed to update recipe' });
+//     }
+//   });
+
+  app.put('/api/recipes/:id', async (req, res) => {
     try {
       const recipeId = Number(req.params.id);
       const {
@@ -110,6 +169,41 @@ app.put('/api/recipes/:id', async (req, res) => {
         }
       });
   
+      // Fetch the existing recipe with its associated Recipe_Ingredient
+      const existingRecipe = await prisma.recipe.findUnique({
+        where: {
+          id: recipeId,
+        },
+        include: {
+          Recipe_Ingredient: true,
+        },
+      });
+  
+      if (!existingRecipe) {
+        return res.status(404).json({ error: 'Recipe not found' });
+      }
+  
+      // Delete extra recipe_ingredient records
+      const existingRecipeIngredientIds = existingRecipe.Recipe_Ingredient.map(
+        (ingredient) => ingredient.id
+      );
+  
+      const recipeIngredientsToDelete = existingRecipeIngredientIds.filter(
+        (id) => !recipe_ingredientsID.some((ingredient) => ingredient.id === id)
+      );
+  
+      console.log(req.body)
+      if (recipeIngredientsToDelete.length > 0) {
+        await prisma.Recipe_Ingredient.deleteMany({
+          where: {
+            id: {
+              in: recipeIngredientsToDelete,
+            },
+          },
+        });
+      }
+  
+      // Update the recipe and its Recipe_Ingredient
       const updatedRecipe = await prisma.recipe.update({
         where: {
           id: recipeId,
