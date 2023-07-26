@@ -37,9 +37,7 @@ model Img {
 model Ingredient {
   id                Int                 @id @default(autoincrement())
   name              String
-  quantity          Float?
-  measurement       String?
-  Cost              Float?
+  description       String
   Recipe_Ingredient Recipe_Ingredient[]
   createdAt         DateTime            @default(now())
   Img               Img?

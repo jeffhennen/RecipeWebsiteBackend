@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import cors from 'cors';
 import https from 'https';
 import fs from 'fs';
+import { create } from 'domain';
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -148,33 +149,40 @@ app.put('/api/recipes/:id', async (req, res) => {
   
   
 
-
-
-app.post('/api/addRecipe', async (req, res) => {
+  app.post('/api/recipes/addRecipe', async (req, res) => {
     try {
         
         const reqRecipe = req.body;
+        console.log(reqRecipe);
     
         const recipe = await prisma.recipe.create({
           data: {
-            name: "Summer Sausage",
-            description: "Fantastic Summer Sausage recipe for the ages",
-            steps: {
-                stepsList: [
-                    "Grind the meat, alternating",
-                    "Season the meat",
-                    "mix the meat",
-                ]
-            },
+            name: reqRecipe.name,
+            description: reqRecipe.description,
+            steps: reqRecipe.steps,
+            notes: reqRecipe.notes,
             Recipe_Ingredient: {
-                create: {
-                    ingredientId: 1,
-                    quantity: 25,
-                    measurement: "lbs"
+              create: reqRecipe.Recipe_Ingredient.map(ingredient =>{
+                return {
+                  ingredient: {
+                    connect: { id: Number(ingredient.ingredientId) },
+                  },
+                  quantity: Number(ingredient.quantity),
+                  measurement: ingredient.measurement
                 }
-            }
-            // Include any other fields you want to save
+                
+              }),
+
+            },
+
           },
+          include:{
+            Recipe_Ingredient: {
+              include: {
+                ingredient: true
+              }
+            }
+          }
         });
     
         console.log(recipe);
@@ -190,15 +198,102 @@ app.get('/api/Ingredients', async (req, res) => {
 
     const ingredients = await prisma.ingredient.findMany();
 
-    res.json(ingredients);
+    res.send(ingredients);
 });
 
-app.post('/api/Ingredients/AddIngredient', async (req, res) => {
-
+app.post('/api/Ingredients', async (req, res) => {
+  try {
     const ingredient = req.body;
 
-    await prisma.ingredient.create(ingredient);
-})
+    console.log(ingredient)
+    const createdIngredient = await prisma.ingredient.create({
+      data:{
+        name: ingredient.name,
+        description: ingredient.description,
+      }
+
+    });
+
+    // Send the ID of the created ingredient in the response
+    res.status(201).json({ id: createdIngredient.id });
+  } catch (error) {
+    // Handle the error
+    console.error(error);
+    res.status(500).json({ error: 'Failed to add ingredient' });
+  }
+});
+
+app.delete('/api/ingredients/:ingredientId', async (req, res) => {
+  const ingredientId = Number(req.params.ingredientId);
+
+  try {
+    // Check if there are any recipe_ingredients associated with the ingredient
+    const recipeIngredientsCount = await prisma.Recipe_Ingredient.count({
+      where: {
+        ingredientId: ingredientId,
+      },
+    });
+
+    if (recipeIngredientsCount > 0) {
+      return res.status(400).json({ error: 'Cannot delete the ingredient as it is in use by some recipes.' });
+    }
+
+    // If there are no recipe_ingredients, proceed with the deletion
+    const deletedIngredient = await prisma.ingredient.delete({
+      where: {
+        id: ingredientId,
+      },
+    });
+
+    res.status(200).json(deletedIngredient);
+  } catch (error) {
+    // Handle the error
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete the ingredient' });
+  }
+});
+
+app.put('/api/ingredients', async (req, res) => {
+  try {
+    const updatedIngredients = req.body;
+    console.log(updatedIngredients);
+
+    // Iterate through each updated ingredient and perform the update
+    for (const updatedIngredient of updatedIngredients) {
+      const { id, name, description } = updatedIngredient;
+
+      // Find the ingredient in the database by its ID
+      const ingredient = await prisma.ingredient.findUnique({
+        where: {
+          id: id,
+        },
+      });
+
+      // If the ingredient is not found, skip to the next one
+      if (!ingredient) {
+        continue;
+      }
+
+      // Perform the update
+      await prisma.ingredient.update({
+        where: {
+          id: id,
+        },
+        data: {
+          name: name,
+          description: description,
+        },
+      });
+    }
+
+    res.status(200).json({ message: 'Ingredients updated successfully' });
+  } catch (error) {
+    // Handle the error
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update ingredients' });
+  }
+});
+
 
 // Add your other routes and middleware here...
 // (The same code you provided in the previous message)
